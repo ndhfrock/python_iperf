@@ -12,7 +12,7 @@ def mysql_insert(now, throughput, latency, jitter, loss_rate):
         host="140.118.122.120",
         user="root",
         password="fihdan",
-        database="test_grafana"
+        database="test_udp"
     )
     mycursor = mydb.cursor()
 
@@ -29,8 +29,7 @@ def test():
     client = iperf3.Client()
     client.duration = 1
     client.server_hostname = '140.118.122.120'
-    client.port = 6969
-    client.num_streams = 20
+    client.port = 5201
     client.bandwidth = 10000000
     client.bulksize = 8000
     client.protocol = 'udp'
