@@ -9,48 +9,13 @@ import iperf3
 import sys
 import threading, time, os
 
-test_number =  1
-finish = False
-
-def listToString(s):  
-    
-    # initialize an empty string 
-    str1 = 0
-    
-    # traverse in the string   
-    for ele in s:  
-        str1 += ele   
-    
-    # return string   
-    return str1  
-
-def mysql_insert(now, throughput_upload, throughput_download, latency, jitter, loss_rate):
-    mydb = mysql.connector.connect(
-        host="140.118.122.120",
-        user="root",
-        password="fihdan",
-        database="test_grafana",
-        auth_plugin='mysql_native_password'
-    )
-    mycursor = mydb.cursor()
-
-    sql = "insert into test_performance_%s values (CONVERT_TZ('%s-%s-%s %s:%s:%s','+08:00','+00:00'),%.3f,%.3f,%.3f,%.3f, %.3f)"
-    #print(sys.argv[2])
-    #print(sql % (sys.argv[2], now.strftime("%Y"), now.strftime("%m"), now.strftime("%d"), now.strftime("%H"), now.strftime("%M"), now.strftime("%S"), throughput_upload, throughput_download, latency, jitter, loss_rate))
-    #print(now.strftime("%S"))
-    mycursor.execute(sql % (sys.argv[2], now.strftime("%Y"), now.strftime("%m"), now.strftime("%d"), now.strftime("%H"), now.strftime("%M"), now.strftime("%S"), throughput_upload, throughput_download, latency, jitter, loss_rate))
-
-    mydb.commit()
-
-    print(mycursor.rowcount, "record inserted.")
-
-    global test_number
-    test_number += 1
+test_number = 0
+ip = sys.argv[3]
 
 def test_tcp_upload():
     client = iperf3.Client()
-    client.duration = 5
-    client.server_hostname = 'sys.argv[3]'
+    client.duration = 2
+    client.server_hostname = ip
     client.port = 5201
     client.num_streams = 15
     client.protocol = 'tcp'
@@ -65,16 +30,6 @@ def test_tcp_upload():
     # get test start time
     now = datetime.now()
     
-
-    # Test the RTT first before iperf test
-    rtt_list = measure_latency(host='sys.argv[3]', port=5201, runs=1, timeout=2.5)
-
-    while rtt_list[0] == None:
-        rtt_list = measure_latency(host='sys.argv[2]', port=client.port, runs=1, timeout=2.5)
-
-    #change from list to float
-    rtt = float(rtt_list[0])
-    
     result = client.run()
 
     if result.error:
@@ -84,12 +39,12 @@ def test_tcp_upload():
         print('')
         print('Test completed for Upload:')
         print("  started at                 ",test_time)	
-        print('  started at                  {0}'.format(result.time))	
-        print('  started at (second)         {0}'.format(result.timesecs))
+        #print('  started at                  {0}'.format(result.time))	
+        #print('  started at (second)         {0}'.format(result.timesecs))
         #print('  bits transmitted           {0}'.format(result.sent_Mbps))
         #print('  bits received              {0}'.format(result.received_Mbps))
         #print('  loss packet                {0}'.format(result.lost_packets))
-        #print('  loss packet peercentage    {0}'.format(result.lost_percent))
+        #print('  loss packet percentage    {0}'.format(result.lost_percent))
         #print('  avg cpu load               {0}%\n'.format(result.local_cpu_total))
 
         print('==========================================================')
@@ -110,21 +65,38 @@ def test_tcp_upload():
 
         print('==========================================================')
 
-        print("  Latency to target in ms is %.3f ms" %rtt)
+        mysql_insert_upload(now, result.sent_Mbps)
 
-        print('==========================================================')
+def mysql_insert_upload(now, throughput_upload):
+    mydb = mysql.connector.connect(
+        host="172.17.0.3",
+        user="root",
+        password="yourpassword",
+        database="iperf3_testing",
+        auth_plugin='mysql_native_password'
+    )
+    mycursor = mydb.cursor()
 
-        test_tcp_download(result.sent_Mbps, rtt)
+    sql = "insert into test_performance_%s (time, throughput_upload) values (CONVERT_TZ('%s-%s-%s %s:%s:%s','+08:00','+00:00'),%.3f)"
+    mycursor.execute(sql % (sys.argv[2], now.strftime("%Y"), now.strftime("%m"), now.strftime("%d"), now.strftime("%H"), now.strftime("%M"), now.strftime("%S"), throughput_upload))
 
-def test_tcp_download(throughput_upload, rtt):
+    mydb.commit()
+
+    print(mycursor.rowcount, "record inserted.")
+
+def test_tcp_download():
     client = iperf3.Client()
-    client.duration = 5
-    client.server_hostname = '192.168.86.122'
+    client.duration = 2
+    client.server_hostname = ip
     client.port = 5201
     client.num_streams = 15
     client.protocol = 'tcp'
     client.reverse = True
     client.omit = 1
+
+    print('==========================================================')
+    print('Test number %d' %test_number)
+    print('==========================================================')
 
     print('Connecting to {0}:{1}'.format(client.server_hostname, client.port))
     
@@ -141,12 +113,12 @@ def test_tcp_download(throughput_upload, rtt):
         print('')
         print('Test completed for Download:')
         print("  started at                 ",test_time)	
-        print('  started at                  {0}'.format(result.time))	
-        print('  started at (second)         {0}'.format(result.timesecs))
+        #print('  started at                  {0}'.format(result.time))	
+        #print('  started at (second)         {0}'.format(result.timesecs))
         #print('  bits transmitted           {0}'.format(result.sent_Mbps))
         #print('  bits received              {0}'.format(result.received_Mbps))
         #print('  loss packet                {0}'.format(result.lost_packets))
-        #print('  loss packet peercentage    {0}'.format(result.lost_percent))
+        #print('  loss packet percentage    {0}'.format(result.lost_percent))
         #print('  avg cpu load               {0}%\n'.format(result.local_cpu_total))
 
         print('==========================================================')
@@ -167,18 +139,104 @@ def test_tcp_download(throughput_upload, rtt):
 
         print('==========================================================')
 
-        test_udp(throughput_upload, result.sent_Mbps, rtt)
+        mysql_insert_download(now, result.sent_Mbps)
 
-def test_udp(throughput_upload, throughput_download, rtt):
+def mysql_insert_download(now, throughput_download):
+    mydb = mysql.connector.connect(
+        host="172.17.0.3",
+        user="root",
+        password="yourpassword",
+        database="iperf3_testing",
+        auth_plugin='mysql_native_password'
+    )
+    mycursor = mydb.cursor()
+
+    sql = "insert into test_performance_%s (time, throughput_download) values (CONVERT_TZ('%s-%s-%s %s:%s:%s','+08:00','+00:00'),%.3f)"
+    mycursor.execute(sql % (sys.argv[2], now.strftime("%Y"), now.strftime("%m"), now.strftime("%d"), now.strftime("%H"), now.strftime("%M"), now.strftime("%S"), throughput_download))
+
+    mydb.commit()
+
+    print(mycursor.rowcount, "record inserted.")
+
+
+def listToString(s):  
+    
+    # initialize an empty string 
+    str1 = 0
+    
+    # traverse in the string   
+    for ele in s:  
+        str1 += ele   
+    
+    # return string   
+    return str1  
+
+def test_tcp_latency():
     client = iperf3.Client()
-    client.duration = 120
-    client.server_hostname = '192.168.86.122'
+    client.server_hostname = ip
+    client.protocol = 'tcp'
+
+    print('==========================================================')
+    print('Test number %d' %test_number)
+    print('==========================================================')
+    
+    # get test start time
+    now = datetime.now()
+
+    # Test the RTT
+    rtt_list = measure_latency(host=ip, port=client.port, runs=1, timeout=2.5)
+
+    while rtt_list[0] == None:
+        rtt_list = measure_latency(host=ip, port=client.port, runs=1, timeout=2.5)
+
+    #change from list to float
+    rtt = float(rtt_list[0])
+
+    test_time = now.strftime("%d/%m/%Y %H:%M:%S")
+
+    print('')
+    print('Test completed for Latency:')
+    print("  started at                 ",test_time)	
+
+    print('==========================================================')
+
+    print("  Latency to target in ms is %.3f ms" %rtt)
+
+    print('==========================================================')
+
+    mysql_insert_latency(now, rtt)
+
+def mysql_insert_latency(now, latency):
+    mydb = mysql.connector.connect(
+        host="172.17.0.3",
+        user="root",
+        password="yourpassword",
+        database="iperf3_testing",
+        auth_plugin='mysql_native_password'
+    )
+    mycursor = mydb.cursor()
+
+    sql = "insert into test_performance_%s (time, latency) values (CONVERT_TZ('%s-%s-%s %s:%s:%s','+08:00','+00:00'),%.3f)"
+    mycursor.execute(sql % (sys.argv[2], now.strftime("%Y"), now.strftime("%m"), now.strftime("%d"), now.strftime("%H"), now.strftime("%M"), now.strftime("%S"), latency))
+
+    mydb.commit()
+
+    print(mycursor.rowcount, "record inserted.")
+
+def test_udp():
+    client = iperf3.Client()
+    client.duration = 2
+    client.server_hostname = ip
     client.port = 5201
     client.num_streams = 1
     client.bandwidth = 10000000
     client.bulksize = 1470
     client.protocol = 'udp'
     client.omit = 1
+
+    print('==========================================================')
+    print('Test number %d' %test_number)
+    print('==========================================================')
 
     print('Connecting to {0}:{1}'.format(client.server_hostname, client.port))
 
@@ -194,8 +252,8 @@ def test_udp(throughput_upload, throughput_download, rtt):
         print('')
         print('Test completed for UDP:')
         print("  started at                ",test_time)	
-        print('  started at                 {0}'.format(result.time))	
-        print('  started at (second)        {0}'.format(result.timesecs))
+        #print('  started at                 {0}'.format(result.time))	
+        #print('  started at (second)        {0}'.format(result.timesecs))
 
         print('==========================================================')
 
@@ -218,20 +276,42 @@ def test_udp(throughput_upload, throughput_download, rtt):
 
         print('==========================================================')
 
-        mysql_insert(now, throughput_upload, throughput_download, rtt, result.jitter_ms, result.lost_percent)
+        mysql_insert_udp(now, result.jitter_ms, result.lost_percent)
 
-def wait():
-    print('Testing for %s seconds' % sys.argv[1])
-    time.sleep(int(sys.argv[1]))
-    print('==========================================================')
-    print('Testing duration has finished, exiting program')
-    print('==========================================================')
-    os._exit(1)
+def mysql_insert_udp(now, jitter, loss_rate):
+    mydb = mysql.connector.connect(
+        host="172.17.0.3",
+        user="root",
+        password="yourpassword",
+        database="iperf3_testing",
+        auth_plugin='mysql_native_password'
+    )
+    mycursor = mydb.cursor()
+
+    sql = "insert into test_performance_%s (time, jitter, loss_rate) values (CONVERT_TZ('%s-%s-%s %s:%s:%s','+08:00','+00:00'),%.3f, %.3f)"
+    mycursor.execute(sql % (sys.argv[2], now.strftime("%Y"), now.strftime("%m"), now.strftime("%d"), now.strftime("%H"), now.strftime("%M"), now.strftime("%S"), jitter, loss_rate))
+
+    mydb.commit()
+
+    print(mycursor.rowcount, "record inserted.")
 
 def test():
-    while 1 :
+    print('Testing for %s times' % sys.argv[1])
+    test_number = 0
+    while test_number < int(sys.argv[1]) :
         test_tcp_upload()
-        
-background = threading.Thread(name = 'test_performance', target = test)
-background.start()
-wait()
+        test_number += 1
+    test_number = 0
+    while test_number < int(sys.argv[1]) :
+        test_tcp_download()
+        test_number += 1
+    test_number = 0
+    while test_number < int(sys.argv[1]) :
+        test_tcp_latency()
+        test_number += 1
+    test_number = 0
+    while test_number < int(sys.argv[1]) :
+        test_udp()
+        test_number += 1
+
+test()
