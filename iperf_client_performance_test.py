@@ -300,10 +300,12 @@ def test():
     test_number = 0
     while test_number < int(sys.argv[1]) :
         test_tcp_upload()
+        time.sleep(1)
         test_number += 1
     test_number = 0
     while test_number < int(sys.argv[1]) :
         test_tcp_download()
+        time.sleep(1)
         test_number += 1
     test_number = 0
     while test_number < int(sys.argv[1]) :
