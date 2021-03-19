@@ -9,8 +9,8 @@ import iperf3
 import sys
 import threading, time, os
 
-test_number =  1
-finish = False
+# IP address destination
+ip = sys.argv[3]
 
 def listToString(s):  
     
@@ -26,10 +26,10 @@ def listToString(s):
 
 def mysql_insert(now, throughput_upload, throughput_download, latency, jitter, loss_rate):
     mydb = mysql.connector.connect(
-        host="140.118.122.120",
+        host= "172.17.0.2",
         user="root",
-        password="fihdan",
-        database="test_grafana",
+        password="yourpassword",
+        database="iperf3_testing",
         auth_plugin='mysql_native_password'
     )
     mycursor = mydb.cursor()
@@ -44,13 +44,10 @@ def mysql_insert(now, throughput_upload, throughput_download, latency, jitter, l
 
     print(mycursor.rowcount, "record inserted.")
 
-    global test_number
-    test_number += 1
-
 def test_tcp_upload():
     client = iperf3.Client()
-    client.duration = 5
-    client.server_hostname = 'sys.argv[3]'
+    client.duration = 1
+    client.server_hostname = ip
     client.port = 5201
     client.num_streams = 15
     client.protocol = 'tcp'
@@ -67,10 +64,10 @@ def test_tcp_upload():
     
 
     # Test the RTT first before iperf test
-    rtt_list = measure_latency(host='sys.argv[3]', port=5201, runs=1, timeout=2.5)
+    rtt_list = measure_latency(host= ip, port= client.port , runs=1, timeout=2.5)
 
     while rtt_list[0] == None:
-        rtt_list = measure_latency(host='sys.argv[2]', port=client.port, runs=1, timeout=2.5)
+        rtt_list = measure_latency(host= ip, port=client.port, runs=1, timeout=2.5)
 
     #change from list to float
     rtt = float(rtt_list[0])
@@ -118,8 +115,8 @@ def test_tcp_upload():
 
 def test_tcp_download(throughput_upload, rtt):
     client = iperf3.Client()
-    client.duration = 5
-    client.server_hostname = '192.168.86.122'
+    client.duration = 1
+    client.server_hostname = ip
     client.port = 5201
     client.num_streams = 15
     client.protocol = 'tcp'
@@ -171,8 +168,8 @@ def test_tcp_download(throughput_upload, rtt):
 
 def test_udp(throughput_upload, throughput_download, rtt):
     client = iperf3.Client()
-    client.duration = 120
-    client.server_hostname = '192.168.86.122'
+    client.duration = 1
+    client.server_hostname = ip
     client.port = 5201
     client.num_streams = 1
     client.bandwidth = 10000000
@@ -228,10 +225,24 @@ def wait():
     print('==========================================================')
     os._exit(1)
 
-def test():
+def test_with_threading():
     while 1 :
         test_tcp_upload()
         
-background = threading.Thread(name = 'test_performance', target = test)
-background.start()
-wait()
+def test_normal():
+    # Number of test done
+    global test_number
+    test_number = 0
+
+    print('Testing for %s times' % sys.argv[1])
+    while test_number != int(sys.argv[1]) :
+        test_tcp_upload()
+        time.sleep(3)
+        test_number += 1
+
+# If you want to test using threading
+#background = threading.Thread(name = 'test_performance', target = test)
+#background.start()
+#wait()
+
+test_normal()

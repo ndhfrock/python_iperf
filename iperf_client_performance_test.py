@@ -14,7 +14,7 @@ ip = sys.argv[3]
 
 def test_tcp_upload():
     client = iperf3.Client()
-    client.duration = 2
+    client.duration = 12
     client.server_hostname = ip
     client.port = 5201
     client.num_streams = 15
@@ -22,7 +22,7 @@ def test_tcp_upload():
     client.omit = 1
 
     print('==========================================================')
-    print('Test number %d' %test_number)
+    #print('Test number %d' %test_number)
     print('==========================================================')
     
     print('Connecting to {0}:{1}'.format(client.server_hostname, client.port))
@@ -86,7 +86,7 @@ def mysql_insert_upload(now, throughput_upload):
 
 def test_tcp_download():
     client = iperf3.Client()
-    client.duration = 2
+    client.duration = 12
     client.server_hostname = ip
     client.port = 5201
     client.num_streams = 15
@@ -95,7 +95,7 @@ def test_tcp_download():
     client.omit = 1
 
     print('==========================================================')
-    print('Test number %d' %test_number)
+    #print('Test number %d' %test_number)
     print('==========================================================')
 
     print('Connecting to {0}:{1}'.format(client.server_hostname, client.port))
@@ -225,14 +225,14 @@ def mysql_insert_latency(now, latency):
 
 def test_udp():
     client = iperf3.Client()
-    client.duration = 2
+    client.duration = 1
     client.server_hostname = ip
-    client.port = 5201
+    client.port = 9999
     client.num_streams = 1
     client.bandwidth = 10000000
     client.bulksize = 1470
     client.protocol = 'udp'
-    client.omit = 1
+    #client.omit = 1
 
     print('==========================================================')
     print('Test number %d' %test_number)
@@ -299,21 +299,11 @@ def test():
     print('Testing for %s times' % sys.argv[1])
     test_number = 0
     while test_number < int(sys.argv[1]) :
-        test_tcp_upload()
-        time.sleep(1)
-        test_number += 1
-    test_number = 0
-    while test_number < int(sys.argv[1]) :
-        test_tcp_download()
-        time.sleep(1)
-        test_number += 1
-    test_number = 0
-    while test_number < int(sys.argv[1]) :
-        test_tcp_latency()
-        test_number += 1
-    test_number = 0
-    while test_number < int(sys.argv[1]) :
+        #test_tcp_upload()
+        #test_tcp_download()
+        #test_tcp_latency()
         test_udp()
+        #time.sleep(5)
         test_number += 1
 
 test()
